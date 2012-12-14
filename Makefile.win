@@ -1,19 +1,20 @@
-CC = gcc -std=c99
+CC = i586-mingw32msvc-gcc
 LD = $(CC)
-STRIP = strip
+STRIP = i586-mingw32msvc-strip
 
 NAME=game_x86.exe
 
 TARGET= $(NAME)
 
+INCS =  -I. -I./3rd -I/usr/i586-mingw32msvc/include/
+
 LDFLAGS=$(CFLAGS)
-LIBS = -lmingw32 -SDLmain -lSDL -lSDL_image -lSDL_mixer -lopengl32 -lglu32
+LIBS = -lmingw32 -lSDLmain -lSDL -lSDL_image -lSDL_mixer -lSDL_ttf -lopengl32 -lglu32
 
 LIBS += -l:./libExcessiveOverkill_x86.dll
+DEFS = -DWIN32 -DWIN32_CROSS
 
 OBJS = main.o
-
-MYCC = $(CC) $(CFLAGS) $(INCS) $(DEFS)
 
 ########################################################################
 
@@ -21,16 +22,18 @@ all: $(TARGET)
 
 release: CFLAGS += -O2 -DGAME_RELEASE
 release: $(TARGET)
-	$(STRIP) $(TARGET)
+        $(STRIP) $(TARGET)
 
 debug: CFLAGS += -Wall -O0 -g -DEO_DEBUG
 debug: $(TARGET)
 
 $(TARGET): $(OBJS)
-	$(LD) $(LDFLAGS) $(OBJS) -o $@ $(LIBS)
+        $(LD) $(LDFLAGS) $(OBJS) -o $@ $(LIBS)
 
 .c.o:
-	$(MYCC) -c $< -o $@
+                $(CC) $(CFLAGS) $(INCS) $(DEFS) -c $< -o $@
 
 clean:
-	rm -f *.o *.bin
+        rm -f *.o *.exe
+
+
