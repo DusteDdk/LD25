@@ -22,18 +22,18 @@ all: $(TARGET)
 
 release: CFLAGS += -O2 -DGAME_RELEASE
 release: $(TARGET)
-        $(STRIP) $(TARGET)
+	$(STRIP) $(TARGET)
 
 debug: CFLAGS += -Wall -O0 -g -DEO_DEBUG
 debug: $(TARGET)
 
 $(TARGET): $(OBJS)
-        $(LD) $(LDFLAGS) $(OBJS) -o $@ $(LIBS)
+	$(LD) $(LDFLAGS) $(OBJS) -o $@ $(LIBS)
 
 .c.o:
-                $(CC) $(CFLAGS) $(INCS) $(DEFS) -c $< -o $@
+	$(CC) $(CFLAGS) $(INCS) $(DEFS) -c $< -o $@
 
 clean:
-        rm -f *.o *.exe
+	rm -f *.o *.exe
 
 
