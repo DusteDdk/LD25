@@ -1,0 +1,7 @@
+file=data/gfx/cursor.png
+framex=32
+framey=32
+frames=10
+ticks=100
+rows=4
+cols=4

@@ -1,0 +1,7 @@
+file=data/gfx/defaultparticle.png
+framex=32
+framey=32
+frames=8
+ticks=64
+rows=2
+cols=4

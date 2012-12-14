@@ -1,0 +1,44 @@
+CC = gcc -std=c99
+LD = $(CC)
+STRIP = strip
+
+ifeq ($(ARCH),x86)
+  NAME=game_x86.bin
+else
+  NAME=game_x64.bin
+endif
+
+TARGET= $(NAME)
+
+LDFLAGS=$(CFLAGS)
+LIBS = -lSDL -lSDL_image -lSDL_mixer -lpng -lm -lz -lpthread  -lGL 
+
+ifeq ($(ARCH),x86)
+  LIBS += -l:./libExcessiveOverkill_x86.so
+else
+  LIBS += -l:./libExcessiveOverkill_x64.so
+endif
+
+OBJS = main.o
+
+MYCC = $(CC) $(CFLAGS) $(INCS) $(DEFS)
+
+########################################################################
+
+all: $(TARGET)
+
+release: CFLAGS += -O2 -DGAME_RELEASE
+release: $(TARGET)
+	$(STRIP) $(TARGET)
+
+debug: CFLAGS += -Wall -O0 -g -DEO_DEBUG
+debug: $(TARGET)
+
+$(TARGET): $(OBJS)
+	$(LD) $(LDFLAGS) $(OBJS) -o $@ $(LIBS)
+
+.c.o:
+	$(MYCC) -c $< -o $@
+
+clean:
+	rm -f *.o *.bin
