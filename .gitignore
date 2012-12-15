@@ -1,0 +1,8 @@
+.cproject
+.project
+.settings/
+game_x86.bin
+libExcessiveOverkill_x86.so
+libeo/
+main.o
+

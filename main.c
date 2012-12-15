@@ -7,6 +7,10 @@
   #define DATADIR "."
 #endif
 
+#define COLTEAM_CITIES 1
+#define COLTEAM_EVILRAYS 2
+#define COLTEAM_GOODPC 3
+
 void btnClbQuit(void* notused)
 {
   eoExec("quit 1");
@@ -14,20 +18,12 @@ void btnClbQuit(void* notused)
 
 void btnClbStartGame(void* notused)
  {
-   eoExec("level 1");
+	eoExec("campos 32.7 15.72 45.43");
+	eoExec("camlook 32.7 17.72 20.43");
+	eoGuiHide();
+	eoPauseSet(0);
  }
 
-int conClbLoadLevel( const char* arg, void* unused )
-{
-  eoPrint("I was asked to load level number %s", arg);
-  //eoExec("camfree 1");
-  eoExec("testbox 1");
-  //eoExec("campos -10 0 0");
-  eoExec("camlook 0 0 0");
-  //eoExec("echo Hello World");
-  eoGuiHide();
-  return(CON_CALLBACK_HIDE_RETURN_VALUE);
-}
 
 void explo( vec3 p )
 {
@@ -61,6 +57,12 @@ void explo( vec3 p )
 
 	  eoPsysEmit(emitter, p);
 }
+
+void ctyColFunc( engObj_s* cty, engObj_s* nme )
+{
+	eoPrint("Something hit me!");
+}
+
 //width=20, height=10,length=30;
 void _bthink(engObj_s* b)
 {
@@ -85,13 +87,22 @@ void _bthink(engObj_s* b)
 
 void frameStart()
 {
-	static GLfloat rot=0;
-	rot += 0.001;
-	vec3 p;
-	p.y = 16.0;
-	p.x = sin( rot )*70.0;
-	p.z = cos( rot )*70.0;
-	eoCamPosSet( p );
+
+}
+
+void starsThink( engObj_s* stars )
+{
+	stars->pos = eoCamPosGet();
+	stars->rot.x += 0.02;
+	stars->rot.z += 0.06;
+}
+
+void psyThink( engObj_s* psy )
+{
+	psy->pos = eoCamPosGet();
+	psy->rot.x -= 0.042;
+	psy->rot.z -= 0.05;
+	psy->rot.y += 0.07;
 }
 
 int main(int argc, char *argv[])
@@ -99,79 +110,95 @@ int main(int argc, char *argv[])
 
   eoInitAll(argc, argv, DATADIR);
 
-  //Register the "level" console command to load game levels.
-  eoFuncAdd( conClbLoadLevel,NULL, "level" );
-
+  //Load the target cursor
+  sprite_base* tcur_sprb = eoSpriteBaseLoad(Data("/data/gfx/","cursor-target.spr"));
+  sprite_s* tcur_spr = eoSpriteNew( tcur_sprb, 1, 1 );
+  eoGuiSetCursor(tcur_spr, -32,-32 );
 
   //Setup a window so we can Start Game or Exit.
   guiContext* winRoot = eoGuiContextCreate();
   eoGuiContextSet(winRoot);
 
-  guiWindow_s* winMainMenu = eoGuiAddWindow( winRoot, eoSetting()->res.x/2-100, eoSetting()->res.y/2-45, 200,90, "Where am I ?",0 );
+  guiWindow_s* winMainMenu = eoGuiAddWindow( winRoot, eoSetting()->res.x/2-100, eoSetting()->res.y/2-45, 200,90, "killCity",0 );
   //Add button to exit the game.
   eoGuiAddButton(winMainMenu,GUI_POS_CENTER,5, 190, 20, "Start!", btnClbStartGame );
   eoGuiAddButton(winMainMenu,GUI_POS_CENTER,35, 190, 20, "Quit..", btnClbQuit );
 
+  vec3 p;
+  p.x=1;
+  p.y=1;
+  p.z=1;
+  eoCamPosSet(p);
+
+  p.x=2;
+  p.y=100;
+  p.z=3;
+
+  eoCamTargetSet( p );
+
+
+
+
   eoGuiShow();
+  eoPauseSet(1);
 
   eoRegisterStartFrameFunc( frameStart );
-  //Load stuff
-  sprite_base* bugspic = eoSpriteBaseLoad( Data("/data/gfx/", "bugs.spr") );
-  sprite_s* spr = eoSpriteNew( bugspic, 0,0  );
-
-  //Add to game world
-  engObj_s* bugs = eoObjCreate( ENGOBJ_SPRITE );
-  bugs->sprite = spr;
-  eoObjBake( bugs );
- // eoObjAdd( bugs );
 
 
-  int i=0;
-  engObj_s* bouncey;
-  for(i=0; i <50; i++ )
+  GLfloat global_ambient[] = { 0.2f, 0.2f, 0.2f, 2.0f };
+  glLightModelfv(GL_LIGHT_MODEL_AMBIENT, global_ambient);
+
+  GLfloat pos[] = { 20,60,38,1 }; //Last pos: 0 = dir, 1=omni
+  glLightfv( GL_LIGHT0, GL_POSITION, pos );
+
+  GLfloat specular[] = {0.0, 0.0, 0.0, 1.0};
+  glLightfv(GL_LIGHT0, GL_SPECULAR, specular);
+
+  vboModel* ctyMdl = eoModelLoad( "data/objs/", "cty.obj");
+  vboModel* scapeMdl = eoModelLoad( "data/objs/", "scape.obj");
+  vboModel* starsMdl = eoModelLoad( "data/objs/", "stars.obj" );
+  vboModel* psyMdl = eoModelLoad( "data/objs/", "psy.obj" );
+
+  engObj_s* sphereObj;
+
+  sphereObj = eoObjCreate( ENGOBJ_MODEL );
+  sphereObj->model = psyMdl;
+  sphereObj->thinkFunc = psyThink;
+  eoObjBake(sphereObj);
+  eoObjAdd( sphereObj );
+
+  sphereObj = eoObjCreate( ENGOBJ_MODEL );
+  sphereObj->model = starsMdl;
+  sphereObj->thinkFunc = starsThink;
+  eoObjBake(sphereObj);
+  eoObjAdd( sphereObj );
+
+
+  engObj_s* scapeObj = eoObjCreate( ENGOBJ_MODEL );
+  scapeObj->model = scapeMdl;
+  scapeObj->pos.x=0;
+  scapeObj->pos.y=-10;
+  scapeObj->pos.z=-100;
+  scapeObj->rot.y=43;
+
+  eoObjBake(scapeObj);
+  eoObjAdd(scapeObj);
+
+
+  int i;
+  for(i=0; i < 6; i++ )
   {
-	  bouncey = eoObjCreate( ENGOBJ_PAREMIT );
-	  bouncey->emitter = eoPsysNewEmitter();
-	  bouncey->emitter->addictive=1;
-	  bouncey->emitter->numParticlesPerEmission = 2;
-	  bouncey->emitter->ticksBetweenEmissions = 1;
-	  bouncey->emitter->particleLifeMax = 1000;
-	  bouncey->emitter->particleLifeVariance = 60;
-	  bouncey->emitter->shrink=1;
-	  bouncey->emitter->sizeMax=0.06;
-	  bouncey->emitter->sizeVariance=0;
-	  bouncey->emitter->rotateParticles=0;
-	  bouncey->emitter->colorVariance[0]=1.0;
-	  bouncey->emitter->colorVariance[1]=1.0;
-	  bouncey->emitter->colorVariance[2]=1.0;
-	  bouncey->emitter->colorVariance[3]=0.0;
-	  bouncey->emitter->emitSpeedMax=1;
-	  bouncey->emitter->emitSpeedVariance=1;
-	  eoPsysBake(bouncey->emitter);
+	  engObj_s* cty = eoObjCreate( ENGOBJ_MODEL );
+	  cty->colTeam = COLTEAM_CITIES;
+	  cty->model = ctyMdl;
+	  cty->colFunc = ctyColFunc;
 
-	  bouncey->pos.x=0;
-	  bouncey->pos.y=0;
-	  bouncey->pos.z=0;
+	  cty->pos.x = i*10;
+	  if( i > 2 ) cty->pos.x +=16;
 
-	  bouncey->vel.x = ((float)(rand()%30))/100.0;
-	  bouncey->vel.y = ((float)(rand()%30))/100.0;
-	  bouncey->vel.z = ((float)(rand()%30))/100.0;
-
-	  bouncey->thinkFunc = _bthink;
-
-	  eoObjBake( bouncey );
-	  eoObjAdd(bouncey);
+	  eoObjBake( cty );
+	  eoObjAdd( cty );
   }
-
-  bouncey = eoObjCreate( ENGOBJ_MODEL );
-  bouncey->model = eoModelLoad( "data/objs/", "untitled.obj" );
-  bouncey->thinkFunc = _bthink;
-  eoObjBake(bouncey);
-  eoObjAdd(bouncey);
-
-
-
-//  eoPsysEmit( )
 
   eoMainLoop();
 
