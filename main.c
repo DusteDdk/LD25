@@ -127,9 +127,10 @@ int main(int argc, char *argv[])
 
 
   int i=0;
+  engObj_s* bouncey;
   for(i=0; i <50; i++ )
   {
-	  engObj_s* bouncey = eoObjCreate( ENGOBJ_PAREMIT );
+	  bouncey = eoObjCreate( ENGOBJ_PAREMIT );
 	  bouncey->emitter = eoPsysNewEmitter();
 	  bouncey->emitter->addictive=1;
 	  bouncey->emitter->numParticlesPerEmission = 2;
@@ -161,6 +162,12 @@ int main(int argc, char *argv[])
 	  eoObjBake( bouncey );
 	  eoObjAdd(bouncey);
   }
+
+  bouncey = eoObjCreate( ENGOBJ_MODEL );
+  bouncey->model = eoModelLoad( "data/objs/", "untitled.obj" );
+  bouncey->thinkFunc = _bthink;
+  eoObjBake(bouncey);
+  eoObjAdd(bouncey);
 
 
 
