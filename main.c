@@ -1,3 +1,8 @@
+
+/*
+ * License: WTFPL
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -11,6 +16,14 @@
 #define COLTEAM_EVILRAYS 2
 #define COLTEAM_GOODPC 3
 
+guiContext* menuContext;
+guiContext* ingameContext;
+sprite_s* tcur_spr; //"Target" cursor
+sprite_s* scur_spr; //"Select" cursor
+sprite_s* dcur_spr; //"default" cursor
+
+
+
 void btnClbQuit(void* notused)
 {
   eoExec("quit 1");
@@ -20,7 +33,7 @@ void btnClbStartGame(void* notused)
  {
 	eoExec("campos 32.7 15.72 45.43");
 	eoExec("camlook 32.7 17.72 20.43");
-	eoGuiHide();
+	eoGuiContextSet( ingameContext );
 	eoPauseSet(0);
  }
 
@@ -63,46 +76,50 @@ void ctyColFunc( engObj_s* cty, engObj_s* nme )
 	eoPrint("Something hit me!");
 }
 
-//width=20, height=10,length=30;
-void _bthink(engObj_s* b)
-{
-	if( b->pos.x > 20 || b->pos.x < -20 )
-	{
-		b->vel.x *= -1;
-		explo( b->pos );
-	}
-
-	if( b->pos.y > 10 || b->pos.y < -10 )
-	{
-		b->vel.y *= -1;
-		explo( b->pos );
-	}
-
-	if( b->pos.z > 30 || b->pos.z < -30 )
-	{
-		b->vel.z *= -1;
-		explo( b->pos );
-	}
-}
 
 void frameStart()
 {
-
+	eoGuiSetCursor(dcur_spr, 0,0 );
 }
 
 void starsThink( engObj_s* stars )
 {
 	stars->pos = eoCamPosGet();
-	stars->rot.x += 0.02;
-	stars->rot.z += 0.06;
+	stars->rot.x += 0.01;
+	stars->rot.z += 0.008;
 }
 
 void psyThink( engObj_s* psy )
 {
 	psy->pos = eoCamPosGet();
-	psy->rot.x -= 0.042;
-	psy->rot.z -= 0.05;
-	psy->rot.y += 0.07;
+	psy->rot.x -= 0.004;
+	psy->rot.z -= 0.005;
+	psy->rot.y += 0.007;
+}
+
+void satThink( engObj_s* sat )
+{
+	GLfloat change = ((float)((rand()%10000)-5000))/1000000;
+
+	if( (sat->pos.y > 45.5 && change > 0) || (sat->pos.y < 45.3 && change < 0 ))
+		change = -change;
+
+	sat->vel.y += change;
+}
+
+void ctyMouseEvent( engObj_s* cty, int bs )
+{
+
+	if( bs != 0)
+		explo( cty->pos );
+
+	eoGuiSetCursor(tcur_spr, -32,-32 );
+
+}
+
+void satMouseEvent( engObj_s* sat, int bs )
+{
+		  eoGuiSetCursor(scur_spr, -32,-32 );
 }
 
 int main(int argc, char *argv[])
@@ -112,22 +129,34 @@ int main(int argc, char *argv[])
 
   //Load the target cursor
   sprite_base* tcur_sprb = eoSpriteBaseLoad(Data("/data/gfx/","cursor-target.spr"));
-  sprite_s* tcur_spr = eoSpriteNew( tcur_sprb, 1, 1 );
-  eoGuiSetCursor(tcur_spr, -32,-32 );
+  sprite_base* scur_sprb = eoSpriteBaseLoad(Data("/data/gfx/","cursor-select.spr"));
+  sprite_base* dcur_sprb = eoSpriteBaseLoad(Data("/data/gfx/","cursor.spr"));
+
+  tcur_spr = eoSpriteNew( tcur_sprb, 1, 1 );
+  scur_spr = eoSpriteNew( scur_sprb, 1, 1 );
+  dcur_spr = eoSpriteNew( dcur_sprb, 1, 1 );
+
+
 
   //Setup a window so we can Start Game or Exit.
-  guiContext* winRoot = eoGuiContextCreate();
-  eoGuiContextSet(winRoot);
+  menuContext = eoGuiContextCreate();
+  ingameContext = eoGuiContextCreate();
+  eoGuiContextSet(menuContext);
 
-  guiWindow_s* winMainMenu = eoGuiAddWindow( winRoot, eoSetting()->res.x/2-100, eoSetting()->res.y/2-45, 200,90, "killCity",0 );
+  guiWindow_s* winHalp = eoGuiAddWindow( menuContext, eoSetting()->res.x/2-150, eoSetting()->res.y/2-180 , 300,90, "Instructions", 0 );
+  eoGuiAddLabel(winHalp, 0,0, "Destroy the cities using your laser shooting space satellites!\nSelect a sat. and tell it where to shoot.");
+
+
+  guiWindow_s* winMainMenu = eoGuiAddWindow( menuContext, eoSetting()->res.x/2-100, eoSetting()->res.y/2-45, 200,90, "killCity",0 );
   //Add button to exit the game.
   eoGuiAddButton(winMainMenu,GUI_POS_CENTER,5, 190, 20, "Start!", btnClbStartGame );
   eoGuiAddButton(winMainMenu,GUI_POS_CENTER,35, 190, 20, "Quit..", btnClbQuit );
 
+
   vec3 p;
-  p.x=1;
-  p.y=1;
-  p.z=1;
+  p.x=0;
+  p.y=10;
+  p.z=0;
   eoCamPosSet(p);
 
   p.x=2;
@@ -135,8 +164,6 @@ int main(int argc, char *argv[])
   p.z=3;
 
   eoCamTargetSet( p );
-
-
 
 
   eoGuiShow();
@@ -155,6 +182,11 @@ int main(int argc, char *argv[])
   glLightfv(GL_LIGHT0, GL_SPECULAR, specular);
 
   vboModel* ctyMdl = eoModelLoad( "data/objs/", "cty.obj");
+  vboModel* canBaseMdl = eoModelLoad( "data/objs/", "canbase.obj" );
+  vboModel* canTopMdl = eoModelLoad( "data/objs/", "cantop.obj");
+  vboModel* satMdl = eoModelLoad( "data/objs/", "sat.obj");
+
+
   vboModel* scapeMdl = eoModelLoad( "data/objs/", "scape.obj");
   vboModel* starsMdl = eoModelLoad( "data/objs/", "stars.obj" );
   vboModel* psyMdl = eoModelLoad( "data/objs/", "psy.obj" );
@@ -184,6 +216,32 @@ int main(int argc, char *argv[])
   eoObjBake(scapeObj);
   eoObjAdd(scapeObj);
 
+  engObj_s* canObj;
+
+  canObj = eoObjCreate( ENGOBJ_MODEL );
+  canObj->model = canBaseMdl;
+  canObj->pos.x = 33;
+
+  eoObjBake(canObj );
+  eoObjAdd( canObj );
+
+  canObj = eoObjCreate( ENGOBJ_MODEL );
+  canObj->model = canTopMdl;
+  canObj->pos.x = 33;
+  canObj->pos.y = 5;
+
+  eoObjBake(canObj );
+  eoObjAdd( canObj );
+
+  canObj = eoObjCreate( ENGOBJ_MODEL );
+  canObj->model = satMdl;
+  canObj->pos.x = 33;
+  canObj->pos.y = 45.4;
+  canObj->clickedFunc=satMouseEvent;
+  canObj->thinkFunc=satThink;
+  eoObjBake(canObj );
+  eoObjAdd( canObj );
+
 
   int i;
   for(i=0; i < 6; i++ )
@@ -195,7 +253,7 @@ int main(int argc, char *argv[])
 
 	  cty->pos.x = i*10;
 	  if( i > 2 ) cty->pos.x +=16;
-
+	  cty->clickedFunc=ctyMouseEvent;
 	  eoObjBake( cty );
 	  eoObjAdd( cty );
   }
