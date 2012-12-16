@@ -1,10 +1,12 @@
-
-/*
- * License: WTFPL
- */
+/* This program is free software. It comes without any warranty, to
+ * the extent permitted by applicable law. You can redistribute it
+ * and/or modify it under the terms of the Do What The Fuck You Want
+ * To Public License, Version 2, as published by Sam Hocevar. See
+ * http://sam.zoy.org/wtfpl/COPYING for more details. */
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 
 #include "libeo/eng.h"
 
@@ -22,7 +24,15 @@ sprite_s* tcur_spr; //"Target" cursor
 sprite_s* scur_spr; //"Select" cursor
 sprite_s* dcur_spr; //"default" cursor
 
+engObj_s* selSat=NULL;
+engObj_s* selCty=NULL;
 
+typedef struct {
+	vec3 target;
+	int hasTarget;
+	int coolDown;
+	int fireNow;
+} satState_s;
 
 void btnClbQuit(void* notused)
 {
@@ -45,24 +55,24 @@ void explo( vec3 p )
 	{
       emitter = eoPsysNewEmitter();
 	  emitter->addictive=1;
-	  emitter->numParticlesPerEmission = 50;
+	  emitter->numParticlesPerEmission = 250;
 	  emitter->ticksBetweenEmissions = 0;
-	  emitter->particleLifeMax = 1000;
-	  emitter->particleLifeVariance = 500;
+	  emitter->particleLifeMax = 200;
+	  emitter->particleLifeVariance = 400;
 	  emitter->shrink=0;
 	  emitter->fade=0;
 	  emitter->percentFlicker=70;
-	  emitter->sizeMax=0.08;
+	  emitter->sizeMax=0.25;
 	  emitter->sizeVariance=0.04;
 	  emitter->rotateParticles=1;
 	  emitter->colorVariance[0]=0.4;
 	  emitter->colorVariance[1]=0.5;
-	  emitter->colorVariance[2]=0.6;
+	  emitter->colorVariance[2]=0.2;
 	  emitter->colorVariance[3]=0.0;
 	  emitter->color[0]=0.8;
-	  emitter->color[1]=0.6;
-	  emitter->color[2]=0.5;
-	  emitter->emitSpeedMax=1;
+	  emitter->color[1]=0.4;
+	  emitter->color[2]=0.2;
+	  emitter->emitSpeedMax=5;
 	  emitter->emitSpeedVariance=1;
 	  eoPsysBake(emitter);
 	}
@@ -74,6 +84,7 @@ void explo( vec3 p )
 void ctyColFunc( engObj_s* cty, engObj_s* nme )
 {
 	eoPrint("Something hit me!");
+	explo( cty->pos );
 }
 
 
@@ -97,21 +108,96 @@ void psyThink( engObj_s* psy )
 	psy->rot.y += 0.007;
 }
 
+void mThink( engObj_s* m )
+{
+	if( m->pos.y < 1 )
+	{
+		explo(m->pos);
+		eoObjDel(m);
+		eoPrint("Kamikazee!");
+	}
+}
+
+void spawnMissile( int colTeam, vec3 startPos, vec3 direction )
+{
+	engObj_s* m = eoObjCreate( ENGOBJ_PAREMIT );
+
+	particleEmitter_s* emitter = eoPsysNewEmitter();
+	emitter->addictive=1;
+	emitter->numParticlesPerEmission = 4;
+	emitter->ticksBetweenEmissions = 1;
+	emitter->particleLifeMax = 100;
+	emitter->particleLifeVariance = 100;
+	emitter->shrink=0;
+	emitter->fade=0;
+	emitter->percentFlicker=70;
+	emitter->sizeMax=0.07;
+	emitter->sizeVariance=0.03;
+	emitter->rotateParticles=0;
+	emitter->colorVariance[0]=0.4;
+	emitter->colorVariance[1]=0.5;
+	emitter->colorVariance[2]=0.6;
+	emitter->colorVariance[3]=0.0;
+	emitter->color[0]=0.8;
+	emitter->color[1]=0.6;
+	emitter->color[2]=0.5;
+	emitter->emitSpeedMax=0.1;
+	emitter->emitSpeedVariance=0.1;
+	eoPsysBake(emitter);
+	m->emitter = emitter;
+	m->colTeam=colTeam;
+	m->pos=startPos;
+	m->vel=eoVec3Scale( eoVec3Normalize(direction), 0.2);
+	m->thinkFunc=mThink;
+	eoObjBake(m);
+	eoObjAdd(m);
+}
+
 void satThink( engObj_s* sat )
 {
-	GLfloat change = ((float)((rand()%10000)-5000))/1000000;
+	//We won't change velocity if it's too extreme
+		GLfloat change = ((float)((rand()%10000)-5000))/1000000;
 
-	if( (sat->pos.y > 45.5 && change > 0) || (sat->pos.y < 45.3 && change < 0 ))
-		change = -change;
+		if( (sat->pos.y > 45.5 && change > 0) || (sat->pos.y < 45.3 && change < 0 ))
+			change = -change;
 
-	sat->vel.y += change;
+		if( (sat->pos.y > 45.7 && change > 0) || (sat->pos.y < 45.1 && change < 0 ))
+		{
+			sat->vel.y = 0;
+		}
+
+		sat->vel.y += change;
+
+		satState_s* s = (satState_s*)sat->gameData;
+		if( s->hasTarget )
+		{
+			vec3 v = eoVec3FromPoints( sat->pos, s->target  );
+			sat->rot.z = atan2( v.y, v.x ) * 57.29+90;
+
+			if(s->fireNow)
+			{
+				selCty=0;
+				s->fireNow=0;
+				spawnMissile( COLTEAM_EVILRAYS, sat->pos, v );
+			}
+		}
+
 }
 
 void ctyMouseEvent( engObj_s* cty, int bs )
 {
 
-	if( bs != 0)
+	if( bs == 1)
+	{
+		selCty=cty;
+		if( selSat )
+		{
+			satState_s* s = (satState_s*)selSat->gameData;
+			s->target=selCty->pos;
+			s->hasTarget=1;
+		}
 		explo( cty->pos );
+	}
 
 	eoGuiSetCursor(tcur_spr, -32,-32 );
 
@@ -119,7 +205,60 @@ void ctyMouseEvent( engObj_s* cty, int bs )
 
 void satMouseEvent( engObj_s* sat, int bs )
 {
-		  eoGuiSetCursor(scur_spr, -32,-32 );
+	if( bs == 1)
+	{
+		selSat=sat;
+		if( selCty )
+		{
+			satState_s* s = (satState_s*)selSat->gameData;
+			s->target=selCty->pos;
+			s->hasTarget=1;
+		}
+		explo( sat->pos );
+	}
+
+	eoGuiSetCursor(scur_spr, -32,-32 );
+}
+
+void btnMainMenuCb( void* unused )
+{
+	eoPauseSet(1);
+	eoGuiContextSet( menuContext );
+
+	  vec3 p;
+	  p.x=100;
+	  p.y=10;
+	  p.z=0;
+	  eoCamPosSet(p);
+
+	  p.x=100;
+	  p.y=100;
+	  p.z=3;
+
+	  eoCamTargetSet( p );
+
+}
+
+void fireSats()
+{
+	if( !eoPauseGet() )
+	{
+		if( selSat )
+		{
+			satState_s* s = (satState_s*)selSat->gameData;
+			s->fireNow=1;
+		}
+	}
+}
+
+void btnFireCb( void* unused )
+{
+	fireSats();
+}
+
+void keyFireCb(inputEvent* e)
+{
+	fireSats();
 }
 
 int main(int argc, char *argv[])
@@ -152,19 +291,28 @@ int main(int argc, char *argv[])
   eoGuiAddButton(winMainMenu,GUI_POS_CENTER,5, 190, 20, "Start!", btnClbStartGame );
   eoGuiAddButton(winMainMenu,GUI_POS_CENTER,35, 190, 20, "Quit..", btnClbQuit );
 
+  //Ingame HUD
 
+  //The Exit button
+  eoGuiAddButton( ingameContext, eoSetting()->res.x - 160, eoSetting()->res.y - 60, 150, 50, "Main Menu", btnMainMenuCb );
+  //The Fire button
+  eoGuiAddButton( ingameContext, 10, eoSetting()->res.y - 60, 150, 50, "Fire! (Spacebar)", btnFireCb );
+
+  eoInpAddHook( INPUT_EVENT_KEY, INPUT_FLAG_DOWN, SDLK_SPACE ,keyFireCb );
+
+
+  //Rounds left
   vec3 p;
-  p.x=0;
+  p.x=100;
   p.y=10;
   p.z=0;
   eoCamPosSet(p);
 
-  p.x=2;
+  p.x=100;
   p.y=100;
   p.z=3;
 
   eoCamTargetSet( p );
-
 
   eoGuiShow();
   eoPauseSet(1);
@@ -233,12 +381,43 @@ int main(int argc, char *argv[])
   eoObjBake(canObj );
   eoObjAdd( canObj );
 
+
+  //Sats
+  satState_s* satState;
+
+  canObj = eoObjCreate( ENGOBJ_MODEL );
+  canObj->model = satMdl;
+  canObj->pos.x = 0;
+  canObj->pos.y = 45.4;
+  canObj->clickedFunc=satMouseEvent;
+  canObj->thinkFunc=satThink;
+  satState=malloc(sizeof(satState_s));
+  memset( satState, 0, sizeof(satState_s));
+  canObj->gameData=satState;
+  eoObjBake(canObj );
+  eoObjAdd( canObj );
+
   canObj = eoObjCreate( ENGOBJ_MODEL );
   canObj->model = satMdl;
   canObj->pos.x = 33;
   canObj->pos.y = 45.4;
   canObj->clickedFunc=satMouseEvent;
   canObj->thinkFunc=satThink;
+  satState=malloc(sizeof(satState_s));
+  memset( satState, 0, sizeof(satState_s));
+  canObj->gameData=satState;
+  eoObjBake(canObj );
+  eoObjAdd( canObj );
+
+  canObj = eoObjCreate( ENGOBJ_MODEL );
+  canObj->model = satMdl;
+  canObj->pos.x = 66;
+  canObj->pos.y = 45.4;
+  canObj->clickedFunc=satMouseEvent;
+  canObj->thinkFunc=satThink;
+  satState=malloc(sizeof(satState_s));
+  memset( satState, 0, sizeof(satState_s));
+  canObj->gameData=satState;
   eoObjBake(canObj );
   eoObjAdd( canObj );
 
