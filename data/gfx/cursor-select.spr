@@ -1,0 +1,7 @@
+file=data/gfx/cursor-select.png
+framex=64
+framey=64
+frames=6
+ticks=100
+rows=1
+cols=6
