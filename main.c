@@ -24,6 +24,8 @@ guiContext* wonContext;
 sprite_s* tcur_spr; //"Target" cursor
 sprite_s* scur_spr; //"Select" cursor
 sprite_s* dcur_spr; //"default" cursor
+sprite_s* click_spr;
+engObj_s* clickObj;
 
 engObj_s* selSat=NULL;
 engObj_s* selCty=NULL;
@@ -39,6 +41,9 @@ engObj_s* goatObj;
 vboModel* goatMdl;
 vboModel* ctyMdl;
 
+engObj_s* helpCity;
+
+int helpState=0;
 int score;
 
 void ctyColFunc( engObj_s* cty, engObj_s* nme );
@@ -92,7 +97,10 @@ void btnClbStartGame(void* notused)
 		  cty->colTeam = COLTEAM_CITIES;
 		  cty->model = ctyMdl;
 		  cty->colFunc = ctyColFunc;
-
+		  if(i==0)
+		  {
+			  helpCity=cty;
+		  }
 		  cty->pos.x = i*10;
 		  if( i > 2 ) cty->pos.x +=16;
 		  cty->clickedFunc=ctyMouseEvent;
@@ -182,6 +190,15 @@ void frameStart()
 			btnMainMenuCb(NULL);
 		}
 	}
+
+	if( helpState==1 )
+	{
+		clickObj->pos=helpCity->pos;
+		clickObj->pos.x += 15;
+		clickObj->pos.z += 5;
+		clickObj->pos.y += 4;
+	}
+
 	if( score == 6 )
 	{
 		//eoPauseSet(1);
@@ -343,14 +360,21 @@ void satThink( engObj_s* sat )
 
 		if(s->fireNow && s->coolDown < 1)
 		{
-			s->coolDown=5500 + rand()%5000;
+			s->coolDown=5000;
 			eoSamplePlay(laserFireSnd, 128);
 			selCty=0;
 			s->fireNow=0;
 			spawnMissile( COLTEAM_EVILRAYS, sat->pos, v );
 		}
+		if( helpState== 0)
+		{
+			if(clickObj->pos.y == 1000 )
+			{
+				clickObj->pos=sat->pos;
+				clickObj->pos.x += 15;
+			}
 
-
+		}
 
 }
 
@@ -456,15 +480,22 @@ void aiThink( engObj_s* top )
 void ctyMouseEvent( engObj_s* cty, int bs )
 {
 
-	if( bs == 1)
+	if( bs == 1 && selSat)
 	{
-		selCty=cty;
-		if( selSat )
+		if( helpState == 1 )
 		{
-			satState_s* s = (satState_s*)selSat->gameData;
-			s->target=selCty->pos;
+			helpState++;
+			eoObjDel(clickObj);
 		}
-		explo( cty->pos );
+		selCty=cty;
+
+		satState_s* s = (satState_s*)selSat->gameData;
+		s->target=selCty->pos;
+		if( s->coolDown < 1 )
+		{
+			s->fireNow=1;
+			selSat=NULL;
+		}
 	}
 
 	eoGuiSetCursor(tcur_spr, -32,-32 );
@@ -475,13 +506,11 @@ void satMouseEvent( engObj_s* sat, int bs )
 {
 	if( bs == 1)
 	{
-		selSat=sat;
-		if( selCty )
+		if( helpState == 0 )
 		{
-			satState_s* s = (satState_s*)selSat->gameData;
-			s->target=selCty->pos;
+			helpState++;
 		}
-		explo( sat->pos );
+		selSat=sat;
 	}
 
 	eoGuiSetCursor(scur_spr, -32,-32 );
@@ -512,27 +541,6 @@ void btnMainMenuCb( void* unused )
 
 }
 
-void fireSats()
-{
-	if( !eoPauseGet() )
-	{
-
-		satS[0].fireNow=1;
-		satS[1].fireNow=1;
-		satS[2].fireNow=1;
-
-	}
-}
-
-void btnFireCb( void* unused )
-{
-	fireSats();
-}
-
-void keyFireCb(inputEvent* e)
-{
-	fireSats();
-}
 
 int main(int argc, char *argv[])
 {
@@ -547,6 +555,10 @@ int main(int argc, char *argv[])
   tcur_spr = eoSpriteNew( tcur_sprb, 1, 1 );
   scur_spr = eoSpriteNew( scur_sprb, 1, 1 );
   dcur_spr = eoSpriteNew( dcur_sprb, 1, 1 );
+
+  sprite_base* click_sprb = eoSpriteBaseLoad( Data("/data/gfx/", "click.spr") );
+  click_spr = eoSpriteNew( click_sprb, 1, 1 );
+
 
   goatObj=NULL;
 
@@ -576,10 +588,6 @@ int main(int argc, char *argv[])
 
   //The Exit button
   eoGuiAddButton( ingameContext, eoSetting()->res.x - 160, eoSetting()->res.y - 60, 150, 50, "Main Menu", btnMainMenuCb );
-  //The Fire button
-  eoGuiAddButton( ingameContext, 10, eoSetting()->res.y - 60, 150, 50, "Fire! (Spacebar)", btnFireCb );
-
-  eoInpAddHook( INPUT_EVENT_KEY, INPUT_FLAG_DOWN, SDLK_SPACE ,keyFireCb );
 
   satCdLbl[0] = eoGuiAddLabel(ingameContext, eoSetting()->res.x/2-300, eoSetting()->res.y-60, "Satellite 1 Ready!!");
   satCdLbl[1] = eoGuiAddLabel(ingameContext, eoSetting()->res.x/2-100, eoSetting()->res.y-60, "Satellite 2 Ready!!");
@@ -637,6 +645,8 @@ int main(int argc, char *argv[])
 
   goatMdl = eoModelLoad( "data/objs/", "goat.obj" );
 
+
+
   engObj_s* sphereObj;
 
   sphereObj = eoObjCreate( ENGOBJ_MODEL );
@@ -681,8 +691,8 @@ int main(int argc, char *argv[])
 
   memset( &aiS, 0, sizeof(aiState_s));
   aiS.targets = initList();
-  aiS.rotationSpeed = 0.8;
-  aiS.aisMspeed=0.82;
+  aiS.rotationSpeed = 0.87;
+  aiS.aisMspeed=0.85;
 
   //Sats
   memset( satS, 0, sizeof( satState_s) );
@@ -719,6 +729,17 @@ int main(int argc, char *argv[])
   satS[2].txtStatus=satCdLbl[2]->txt;
   eoObjBake(canObj );
   eoObjAdd( canObj );
+
+
+  clickObj = eoObjCreate( ENGOBJ_SPRITE );
+  clickObj->sprite = click_spr;
+  clickObj->pos.y = 1000;
+
+  eoObjBake( clickObj );
+  eoObjAdd( clickObj );
+  click_spr->scale.x=0.08;
+  click_spr->scale.y=0.08;
+
 
   eoMainLoop();
 
