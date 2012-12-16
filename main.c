@@ -27,6 +27,10 @@ sprite_s* dcur_spr; //"default" cursor
 engObj_s* selSat=NULL;
 engObj_s* selCty=NULL;
 
+sound_s* strangeSnd;
+sound_s* laserFireSnd;
+sound_s* explSnd;
+
 typedef struct {
 	vec3 target;
 	int hasTarget;
@@ -41,6 +45,7 @@ void btnClbQuit(void* notused)
 
 void btnClbStartGame(void* notused)
  {
+	eoSamplePlay(strangeSnd,128);
 	eoExec("campos 32.7 15.72 45.43");
 	eoExec("camlook 32.7 17.72 20.43");
 	eoGuiContextSet( ingameContext );
@@ -83,7 +88,9 @@ void explo( vec3 p )
 
 void ctyColFunc( engObj_s* cty, engObj_s* nme )
 {
-	eoPrint("Something hit me!");
+	eoSamplePlay( explSnd, 128 );
+	eoObjDel(nme);
+	eoObjDel(cty);
 	explo( cty->pos );
 }
 
@@ -112,9 +119,9 @@ void mThink( engObj_s* m )
 {
 	if( m->pos.y < 1 )
 	{
+		eoSamplePlay( explSnd, 128 );
 		explo(m->pos);
 		eoObjDel(m);
-		eoPrint("Kamikazee!");
 	}
 }
 
@@ -176,6 +183,7 @@ void satThink( engObj_s* sat )
 
 			if(s->fireNow)
 			{
+				eoSamplePlay(laserFireSnd, 128);
 				selCty=0;
 				s->fireNow=0;
 				spawnMissile( COLTEAM_EVILRAYS, sat->pos, v );
@@ -300,6 +308,9 @@ int main(int argc, char *argv[])
 
   eoInpAddHook( INPUT_EVENT_KEY, INPUT_FLAG_DOWN, SDLK_SPACE ,keyFireCb );
 
+  strangeSnd = eoSampleLoad(Data("/data/sound/","muwah.wav"));
+  laserFireSnd =eoSampleLoad( Data("/data/sound/","laser0.wav"));
+  explSnd = eoSampleLoad( Data("/data/sound/","expl0.wav") );
 
   //Rounds left
   vec3 p;
