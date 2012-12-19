@@ -548,7 +548,7 @@ int main(int argc, char *argv[])
   eoInitAll(argc, argv, DATADIR);
 
   //Enable mouse-selection
-  eoGameEnableMouseSelection(0.25);
+  eoGameEnableMouseSelection(0.1);
 
   //Load the target cursor
   sprite_base* tcur_sprb = eoSpriteBaseLoad(Data("/data/gfx/","cursor-target.spr"));
