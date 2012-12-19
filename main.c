@@ -118,7 +118,7 @@ void explo( vec3 p )
 	static particleEmitter_s* emitter = NULL;
 	if( emitter == NULL )
 	{
-      emitter = eoPsysNewEmitter();
+    emitter = eoPsysNewEmitter();
 	  emitter->addictive=1;
 	  emitter->numParticlesPerEmission = 250;
 	  emitter->ticksBetweenEmissions = 0;
@@ -546,6 +546,9 @@ int main(int argc, char *argv[])
 {
 
   eoInitAll(argc, argv, DATADIR);
+
+  //Enable mouse-selection
+  eoGameEnableMouseSelection(0.25);
 
   //Load the target cursor
   sprite_base* tcur_sprb = eoSpriteBaseLoad(Data("/data/gfx/","cursor-target.spr"));
