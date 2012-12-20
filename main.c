@@ -106,6 +106,7 @@ void btnClbStartGame(void* notused)
 		  cty->clickedFunc=ctyMouseEvent;
 		  eoObjBake( cty );
 		  eoObjAdd( cty );
+      cty->rot.y = (GLfloat) ((rand()%90)-45);
 	  }
 
 	eoPauseSet(0);
@@ -153,6 +154,10 @@ void goatThink( engObj_s* g )
 	rot += 0.01;
 	g->rot.y = rot*57.29;
 	g->pos.y = 34.267868+ sin( rot );
+
+  g->rot.x += 0.012;
+  g->rot.z += 0.006;
+
 }
 
 void removeMissile( engObj_s* m)
@@ -213,6 +218,7 @@ void frameStart()
 		goatObj = eoObjCreate( ENGOBJ_MODEL );
 		goatObj->model = goatMdl;
 		goatObj->thinkFunc = goatThink;
+    goatObj->colTeam = 123;
 		eoObjBake(goatObj);
 		eoObjAdd(goatObj);
 		goatObj->pos.x = -10.660823;
@@ -394,7 +400,7 @@ void aiThink( engObj_s* top )
 
 	//Check if the target we are moving to is still the closest
 
-
+return;
 
 	//See which target would require least delta in Rotation.
 
