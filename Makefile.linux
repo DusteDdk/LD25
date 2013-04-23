@@ -11,7 +11,7 @@ endif
 TARGET= $(NAME)
 
 LDFLAGS=$(CFLAGS)
-LIBS = -lSDL -lSDL_image -lSDL_mixer -lpng -lm -lz -lpthread  -lGL 
+LIBS = -lSDL -lSDL_image -lSDL_mixer -lpng -lm -lz -lpthread  -lGL -lGLU
 
 ifeq ($(ARCH),x86)
   LIBS += -l:./libExcessiveOverkill_x86.so
